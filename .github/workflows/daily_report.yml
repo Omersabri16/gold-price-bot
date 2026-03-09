@@ -4,7 +4,7 @@ on:
   schedule:
     # Türkiye Saati ile 10:00 (UTC 07:00) ve 17:00 (UTC 14:00)
     - cron: '0 7,14 * * *'
-  workflow_dispatch: # Bu satır, senin manuel olarak başlatabilmeni sağlar
+  workflow_dispatch: # Manuel başlatma imkanı
 
 jobs:
   run-bot:
@@ -20,8 +20,7 @@ jobs:
           python-version: '3.9'
 
       - name: Kütüphaneleri Yükle
-        run: |
-          pip install requests
+        run: pip install requests
 
       - name: Botu Çalıştır
         env:

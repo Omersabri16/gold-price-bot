@@ -5,13 +5,15 @@ TOKEN = os.environ.get("BOT_TOKEN")
 CHAT_ID = os.environ.get("CHAT_ID")
 
 def get_gold_price():
-    url = "https://api.metals.live/v1/spot/gold"
+    # Yahoo Finance Altın (GC=F)
+    url = "https://query1.finance.yahoo.com/v7/finance/quote?symbols=GC=F"
     r = requests.get(url)
     data = r.json()
-    # data örnek: [{"metal":"gold","price":1964.12}]
-    if isinstance(data, list) and len(data) > 0:
-        return data[0].get("price")
-    return None
+    try:
+        price = data["quoteResponse"]["result"][0]["regularMarketPrice"]
+        return price
+    except (KeyError, IndexError):
+        return None
 
 def send_message(text):
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
