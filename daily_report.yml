@@ -1,0 +1,30 @@
+name: Gold Price Bot
+
+on:
+  schedule:
+    # Türkiye Saati ile 10:00 (UTC 07:00) ve 17:00 (UTC 14:00)
+    - cron: '0 7,14 * * *'
+  workflow_dispatch: # Bu satır, senin manuel olarak başlatabilmeni sağlar
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Depoyu Kontrol Et
+        uses: actions/checkout@v3
+
+      - name: Python'u Kur
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Kütüphaneleri Yükle
+        run: |
+          pip install requests
+
+      - name: Botu Çalıştır
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          CHAT_ID: ${{ secrets.CHAT_ID }}
+        run: python gold_bot.py
