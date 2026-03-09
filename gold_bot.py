@@ -5,15 +5,22 @@ TOKEN = os.environ.get("BOT_TOKEN")
 CHAT_ID = os.environ.get("CHAT_ID")
 
 def get_gold_price():
-    # Yahoo Finance Altın (GC=F)
-    url = "https://query1.finance.yahoo.com/v7/finance/quote?symbols=GC=F"
-    r = requests.get(url)
+    url = "https://forex-data-feed.swissquote.com/public-quotes/bboquotes/instrument/XAU/USD"
+    r = requests.get(url, timeout=10)
     data = r.json()
-    try:
-        price = data["quoteResponse"]["result"][0]["regularMarketPrice"]
+
+    # İlk platformu al
+    first_platform = data[0]
+    # spreadProfilePrices listesinden "premium" profili bul
+    premium_price = next(
+        (p for p in first_platform["spreadProfilePrices"] if p["spreadProfile"] == "premium"),
+        None
+    )
+    if premium_price:
+        # bid ve ask ortalamasını alabiliriz
+        price = (premium_price["bid"] + premium_price["ask"]) / 2
         return price
-    except (KeyError, IndexError):
-        return None
+    return None
 
 def send_message(text):
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
@@ -23,7 +30,7 @@ def send_message(text):
 try:
     price = get_gold_price()
     if price:
-        message = f"🌕 Ons Altın Fiyatı: {price:,.2f} USD"
+        message = f"🌕 Ons Altın Fiyatı (XAU/USD): {price:,.2f} USD"
         send_message(message)
     else:
         send_message("⚠️ Fiyat alınamadı.")
