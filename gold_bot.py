@@ -1,7 +1,7 @@
 import requests
 import os
 import sys
-import time
+import re
 from datetime import datetime
 
 # Telegram bilgileri
@@ -11,112 +11,123 @@ CHAT_ID = os.environ.get("CHAT_ID")
 
 def get_gold_price():
     """
-    Altın fiyatını al - 5 FARKLI API DENER
+    Altın fiyatını HTML scraping ile al
     """
 
     print("🟢 Altın fiyatı alınıyor...", file=sys.stderr)
 
-    # API 1: quotel.com (çok hızlı ve güvenilir)
-    try:
-        print("   📡 quotel.com deneniyor...", file=sys.stderr)
-        url = "https://quotel.com/api/gold/price"
-        response = requests.get(url, timeout=5)
-        if response.status_code == 200:
-            data = response.json()
-            price = data.get('gold_price') or data.get('price')
-            if price and float(price) > 0:
-                print(f"   ✅ quotel.com: {price} USD", file=sys.stderr)
-                return float(price)
-    except:
-        pass
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    }
 
-    # API 2: goldapi.io (demo token ile)
+    # KAYNAK 1: bloomberght.com (Türk sitesi, güvenilir)
     try:
-        print("   📡 goldapi.io deneniyor...", file=sys.stderr)
-        url = "https://www.goldapi.io/api/XAU/USD"
-        headers = {
-            'x-access-token': 'goldapi-3s8c0do3hn6opd9-io',
-            'Content-Type': 'application/json'
-        }
-        response = requests.get(url, headers=headers, timeout=5)
-        if response.status_code == 200:
-            data = response.json()
-            price = data.get('price')
-            if price and float(price) > 0:
-                print(f"   ✅ goldapi.io: {price} USD", file=sys.stderr)
-                return float(price)
-    except:
-        pass
+        print("   📡 bloomberght.com deneniyor...", file=sys.stderr)
+        url = "https://www.bloomberght.com/altin"
+        response = requests.get(url, headers=headers, timeout=10)
 
-    # API 3: metals.live (yedek)
-    try:
-        print("   📡 metals.live deneniyor...", file=sys.stderr)
-        url = "https://api.metals.live/v1/spot/gold"
-        response = requests.get(url, timeout=5)
         if response.status_code == 200:
-            data = response.json()
-            if isinstance(data, list) and len(data) > 0:
-                price = data[0].get('gold')
-                if price and float(price) > 0:
-                    print(f"   ✅ metals.live: {price} USD", file=sys.stderr)
-                    return float(price)
-    except:
-        pass
-
-    # API 4: altin.in (Türk sitesi - çalışma garantili)
-    try:
-        print("   📡 altin.in deneniyor...", file=sys.stderr)
-        url = "https://api.altin.in/v1/goldprices.json"
-        response = requests.get(url, timeout=5)
-        if response.status_code == 200:
-            data = response.json()
-            # Altın.in formatı: ons altın fiyatı
-            price = data.get('ons')
-            if price and float(price) > 0:
-                print(f"   ✅ altin.in: {price} USD", file=sys.stderr)
-                return float(price)
-    except:
-        pass
-
-    # API 5: CoinDesk (bitcoin değil ama altın da var)
-    try:
-        print("   📡 coindesk deneniyor...", file=sys.stderr)
-        url = "https://api.coindesk.com/v1/bpi/currentprice.json"
-        response = requests.get(url, timeout=5)
-        if response.status_code == 200:
-            data = response.json()
-            # Bitcoin fiyatı değil, doğrudan ons altın için başka endpoint
-            # Bu sadece yedek, asıl API'ler çalışmazsa denenir
-            pass
-    except:
-        pass
-
-    # API 6: Son çare - Web Scraping (HTML parse)
-    try:
-        print("   📡 web scraping deneniyor...", file=sys.stderr)
-        url = "https://www.gold.org/goldhub/data/gold-prices"
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        }
-        response = requests.get(url, headers=headers, timeout=5)
-        if response.status_code == 200:
-            # HTML içinden fiyatı bulmaya çalış - basit regex
-            import re
             html = response.text
-            # Altın fiyatı pattern'i: $1,945.67 gibi
-            pattern = r'\$([0-9,]+\.?[0-9]*)'
-            matches = re.findall(pattern, html)
-            if matches:
-                # İlk eşleşmeyi al ve temizle
-                price_str = matches[0].replace(',', '')
-                price = float(price_str)
-                if 1000 < price < 3000:  # Mantıklı aralık mı?
-                    print(f"   ✅ web scraping: {price} USD", file=sys.stderr)
-                    return price
-    except:
-        pass
+            # Ons altın fiyatı pattern'i
+            patterns = [
+                r'ons-altin.*?(\d+[.,]\d+)',
+                r'ONS Altın.*?(\d+[.,]\d+)',
+                r'XAU/USD.*?(\d+[.,]\d+)',
+                r'data-price="(\d+[.,\d]+)"',
+                r'(\d+[.,]\d+)\s*USD.*?ons'
+            ]
 
-    print("   ❌ TÜM API'LER BAŞARISIZ!", file=sys.stderr)
+            for pattern in patterns:
+                matches = re.findall(pattern, html, re.IGNORECASE | re.DOTALL)
+                if matches:
+                    price_str = matches[0].replace(',', '').strip()
+                    try:
+                        price = float(price_str)
+                        if 1500 < price < 2500:  # Mantıklı aralık kontrolü
+                            print(f"   ✅ bloomberght.com: {price} USD", file=sys.stderr)
+                            return price
+                    except:
+                        continue
+    except Exception as e:
+        print(f"   bloomberght.com hatası: {e}", file=sys.stderr)
+
+    # KAYNAK 2: bigpara.hurriyet.com.tr
+    try:
+        print("   📡 bigpara.hurriyet.com.tr deneniyor...", file=sys.stderr)
+        url = "https://bigpara.hurriyet.com.tr/altin/"
+        response = requests.get(url, headers=headers, timeout=10)
+
+        if response.status_code == 200:
+            html = response.text
+            # Ons altın fiyatı pattern'i
+            patterns = [
+                r'ons-altin.*?data-value="([^"]+)"',
+                r'ONS ALTIN.*?<span[^>]*>([0-9.,]+)',
+                r'XAUUSD.*?>([0-9.,]+)<'
+            ]
+
+            for pattern in patterns:
+                matches = re.findall(pattern, html, re.IGNORECASE | re.DOTALL)
+                if matches:
+                    price_str = matches[0].replace(',', '').replace('.', '')
+                    try:
+                        price = float(price_str) / 100 if len(price_str) > 4 else float(price_str)
+                        if 1500 < price < 2500:
+                            print(f"   ✅ bigpara: {price} USD", file=sys.stderr)
+                            return price
+                    except:
+                        continue
+    except Exception as e:
+        print(f"   bigpara hatası: {e}", file=sys.stderr)
+
+    # KAYNAK 3: dolar.tlkur.com (basit ve hızlı)
+    try:
+        print("   📡 dolar.tlkur.com deneniyor...", file=sys.stderr)
+        url = "https://dolar.tlkur.com/ons-altin"
+        response = requests.get(url, headers=headers, timeout=10)
+
+        if response.status_code == 200:
+            html = response.text
+            # Çok basit pattern
+            pattern = r'ONS ALTIN.*?(\d+[.,]\d+)'
+            matches = re.findall(pattern, html, re.IGNORECASE | re.DOTALL)
+
+            if matches:
+                price_str = matches[0].replace(',', '').strip()
+                try:
+                    price = float(price_str)
+                    if 1500 < price < 2500:
+                        print(f"   ✅ dolar.tlkur.com: {price} USD", file=sys.stderr)
+                        return price
+                except:
+                    pass
+    except Exception as e:
+        print(f"   dolar.tlkur.com hatası: {e}", file=sys.stderr)
+
+    # KAYNAK 4: investing.com (uluslararası)
+    try:
+        print("   📡 investing.com deneniyor...", file=sys.stderr)
+        url = "https://www.investing.com/commodities/gold"
+        response = requests.get(url, headers=headers, timeout=10)
+
+        if response.status_code == 200:
+            html = response.text
+            pattern = r'instrument-price.*?>([0-9.,]+)<'
+            matches = re.findall(pattern, html)
+
+            if matches:
+                price_str = matches[0].replace(',', '')
+                try:
+                    price = float(price_str)
+                    if 1500 < price < 2500:
+                        print(f"   ✅ investing.com: {price} USD", file=sys.stderr)
+                        return price
+                except:
+                    pass
+    except Exception as e:
+        print(f"   investing.com hatası: {e}", file=sys.stderr)
+
+    print("   ❌ TÜM KAYNAKLAR BAŞARISIZ!", file=sys.stderr)
     return None
 
 
@@ -126,34 +137,29 @@ def send_telegram_message(text):
         print("❌ Telegram bilgileri eksik!", file=sys.stderr)
         return False
 
-    max_retries = 3
-    for attempt in range(max_retries):
-        try:
-            url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
+    try:
+        url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
 
-            payload = {
-                "chat_id": CHAT_ID,
-                "text": text,
-                "parse_mode": "HTML"
-            }
+        payload = {
+            "chat_id": CHAT_ID,
+            "text": text,
+            "parse_mode": "HTML"
+        }
 
-            response = requests.post(url, json=payload, timeout=10)
+        response = requests.post(url, json=payload, timeout=10)
 
-            if response.status_code == 200:
-                result = response.json()
-                if result.get("ok"):
-                    print(f"✅ Mesaj gönderildi (deneme {attempt + 1})", file=sys.stderr)
-                    return True
+        if response.status_code == 200:
+            result = response.json()
+            if result.get("ok"):
+                print("✅ Mesaj gönderildi!", file=sys.stderr)
+                return True
 
-            print(f"   Telegram hatası, yeniden deneniyor... ({attempt + 1}/{max_retries})", file=sys.stderr)
-            time.sleep(2)  # 2 saniye bekle
+        print(f"❌ Telegram hatası: {response.text}", file=sys.stderr)
+        return False
 
-        except Exception as e:
-            print(f"   Hata: {e}, yeniden deneniyor... ({attempt + 1}/{max_retries})", file=sys.stderr)
-            time.sleep(2)
-
-    print("❌ Mesaj gönderilemedi (tüm denemeler başarısız)", file=sys.stderr)
-    return False
+    except Exception as e:
+        print(f"❌ Mesaj gönderilemedi: {e}", file=sys.stderr)
+        return False
 
 
 def main():
@@ -174,12 +180,8 @@ def main():
     print(f"📱 Chat ID: {CHAT_ID}", file=sys.stderr)
     print("=" * 60, file=sys.stderr)
 
-    # Fiyatı al (10 saniye timeout ile)
-    try:
-        price = get_gold_price()
-    except Exception as e:
-        print(f"❌ Beklenmeyen hata: {e}", file=sys.stderr)
-        price = None
+    # Fiyatı al
+    price = get_gold_price()
 
     print("=" * 60, file=sys.stderr)
 
@@ -192,26 +194,22 @@ def main():
         # Fiyatı formatla
         formatted_price = f"{price:,.2f}".replace(',', '.')
 
-        # Trend bilgisi (basit)
-        import random
-        trend = random.choice(["📈", "📉", "➡️"])
+        # Gram altın hesapla (1 ons = 31.1035 gram)
+        gram_price = price / 31.1035
+        formatted_gram = f"{gram_price:,.2f}".replace(',', '.')
 
-        # Mesajı oluştur - ÇOK DAHA ZENGİN
-        message = f"""🏆 <b>ONS ALTIN FİYATI</b> {trend}
+        # Mesajı oluştur
+        message = f"""🏆 <b>ONS ALTIN FİYATI</b> 🏆
 
 💰 <b>{formatted_price} USD</b>
 
-📊 <b>Piyasa Bilgileri:</b>
-• Gram Altın: {price / 31.1035:.2f} USD
-• Çeyrek Altın: {price * 0.25:.2f} USD
-• Yarım Altın: {price * 0.5:.2f} USD
+📊 <b>Gram Altın:</b> {formatted_gram} USD
 
-📅 Tarih: {date_str}
-⏰ Saat: {time_str}
+📅 {date_str} - ⏰ {time_str}
 
-🔗 Kaynak: Uluslararası piyasalar
+📡 Kaynak: Uluslararası piyasalar
 
-#altın #onsaltın #gold #xauusd #yatırım"""
+#altın #onsaltın #gold #xauusd"""
 
         print(f"✅ Fiyat bulundu: {price} USD", file=sys.stderr)
         print("📤 Mesaj gönderiliyor...", file=sys.stderr)
@@ -228,23 +226,14 @@ def main():
     else:
         print("❌ Altın fiyatı alınamadı!", file=sys.stderr)
 
-        # Hata mesajı - daha açıklayıcı
+        # Daha basit hata mesajı
         error_message = """⚠️ <b>ALTIN FİYATI ALINAMADI</b> ⚠️
 
-Şu anda fiyat bilgisine ulaşılamıyor.
+Fiyat bilgisine ulaşılamıyor.
 
-📡 <b>Olası Nedenler:</b>
-• API servislerinde geçici sorun
-• İnternet bağlantı problemi
+🔧 Manuel test için GitHub Actions'da 'Run workflow' butonuna tıklayın.
 
-🔄 <b>Otomatik Tekrar:</b>
-• Sabah 10:00
-• Akşam 17:00
-
-🔧 Manuel test için:
-GitHub Actions'da 'Run workflow' butonuna tıklayın.
-
-#altın #hatabildirimi"""
+🔄 Yarın tekrar denenecek: 10:00 ve 17:00"""
 
         send_telegram_message(error_message)
         sys.exit(1)
