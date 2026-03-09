@@ -5,24 +5,27 @@ TOKEN = os.environ["BOT_TOKEN"]
 CHAT_ID = os.environ["CHAT_ID"]
 
 def get_gold_price():
-    # Alternatif ve daha stabil bir API (Binance üzerinden ons altın/dolar takibi gibi)
+    # Binance API - PAXG (Altın endeksli kripto varlık) ons altın fiyatını verir
     url = "https://api.binance.com/api/v3/ticker/price?symbol=PAXGUSDT"
     r = requests.get(url)
     data = r.json()
-    # PAXG, altına endeksli bir kripto paradır ve ons altın fiyatını birebir takip eder
+    # Hata buradaydı, direkt "price" anahtarını alıyoruz
     return data["price"]
 
 def send_message(text):
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
     payload = {
         "chat_id": CHAT_ID,
-        "text": text
+        "text": f"🌕 {text}"
     }
     requests.post(url, data=payload)
 
+# Ana akış
 try:
-    price = get_gold_price()
-    message = f"📊 Ons Altın (PAXG) Fiyatı: {float(price):.2f} USD"
+    price_raw = get_gold_price()
+    # Gelen veriyi sayıya çevirip güzelleştirelim
+    price_final = float(price_raw)
+    message = f"Ons Altın Fiyatı: {price_final:.2f} USD"
     send_message(message)
 except Exception as e:
-    send_message(f"Hata oluştu: {str(e)}")
+    send_message(f"Botta bir hata oluştu: {str(e)}")
