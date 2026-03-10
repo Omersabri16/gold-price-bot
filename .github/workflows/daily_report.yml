@@ -2,8 +2,8 @@ name: Gold Price Bot
 
 on:
   schedule:
-    # Türkiye Saati ile 10:00 (UTC 07:00) ve 17:00 (UTC 14:00)
-    - cron: '0 6, 10 ,13 , 19 * * *'
+    # Türkiye Saati ile 09:00 , 13.00 , 16.00 , 22.00
+    - cron: '0 6,10,13,19 * * *'
   workflow_dispatch: # Manuel başlatma imkanı
 
 jobs:
